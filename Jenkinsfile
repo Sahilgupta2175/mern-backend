@@ -133,15 +133,13 @@ pipeline {
     
     post {
         always {
-            node {  // Fixed: Wrapped in node block
-                script {
-                    sh 'docker logout || true'
-                    cleanWs()
-                }
+            script {  // Removed node wrapper, just use script
+                sh 'docker logout || true'
+                cleanWs()
             }
         }
         success {
-            node {  // Fixed: Wrapped in node block
+            script {
                 slackSend(
                     color: 'good',
                     message: """SUCCESS: ${env.APP_NAME} backend deployed to ${env.EC2_IP}
@@ -150,7 +148,7 @@ pipeline {
             }
         }
         failure {
-            node {  // Fixed: Wrapped in node block
+            script {
                 slackSend(
                     color: 'danger',
                     message: """FAILED: ${env.APP_NAME} backend deployment
