@@ -35,7 +35,7 @@ pipeline {
 
         stage('Push to Docker Hub') {
             steps {
-                sh "echo ${DOCKERHUB_CREDENTIALS_PSW} | docker login -u ${DOCKERHUB_CREDENTIALS_USR} --password-stdin"
+                sh "echo ${sahilgupta#cs22} | docker login -u ${sahilgupta2106} --password-stdin"
                 sh "docker push ${DOCKER_IMAGE_BACKEND}:latest"
                 sh "docker push ${DOCKER_IMAGE_FRONTEND}:latest"
             }
