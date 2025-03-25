@@ -12,7 +12,6 @@ pipeline {
         BUILD_TIMESTAMP = sh(script: 'date +%Y%m%d%H%M%S', returnStdout: true).trim()
         
         // ===== CREDENTIALS =====
-        // These must be defined in Jenkins credentials store
         DOCKERHUB_CREDS = credentials('docker-hub-creds')
         EC2_SSH_CREDS = credentials('ec2-ssh-key')
         GITHUB_CREDS = credentials('github-creds')
@@ -134,24 +133,30 @@ pipeline {
     
     post {
         always {
-            script {
-                sh 'docker logout || true'
-                cleanWs()
+            node {  // Fixed: Wrapped in node block
+                script {
+                    sh 'docker logout || true'
+                    cleanWs()
+                }
             }
         }
         success {
-            slackSend(
-                color: 'good',
-                message: """SUCCESS: ${APP_NAME} backend deployed to ${EC2_IP}
-                Image: ${DOCKER_IMAGE_BACKEND}:${BUILD_TIMESTAMP}"""
-            )
+            node {  // Fixed: Wrapped in node block
+                slackSend(
+                    color: 'good',
+                    message: """SUCCESS: ${env.APP_NAME} backend deployed to ${env.EC2_IP}
+                    Image: ${env.DOCKER_IMAGE_BACKEND}:${env.BUILD_TIMESTAMP}"""
+                )
+            }
         }
         failure {
-            slackSend(
-                color: 'danger',
-                message: """FAILED: ${APP_NAME} backend deployment
-                Build: ${BUILD_URL}"""
-            )
+            node {  // Fixed: Wrapped in node block
+                slackSend(
+                    color: 'danger',
+                    message: """FAILED: ${env.APP_NAME} backend deployment
+                    Build: ${env.BUILD_URL}"""
+                )
+            }
         }
     }
 }
