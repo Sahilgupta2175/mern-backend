@@ -10,9 +10,9 @@ pipeline {
     stages {
         stage('Checkout Code') {
             steps {
-                git 'https://github.com/yourusername/mern-backend.git'
+                git 'https://github.com/sahilgupta2175/mern-backend.git'
                 dir('frontend') {
-                    git 'https://github.com/yourusername/mern-frontend.git'
+                    git 'https://github.com/sahilgupta2106/mern-frontend.git'
                 }
             }
         }
@@ -35,7 +35,7 @@ pipeline {
 
         stage('Push to Docker Hub') {
             steps {
-                sh "echo ${sahilgupta#cs22} | docker login -u ${sahilgupta2106} --password-stdin"
+                sh "echo ${DOCKERHUB_CREDENTIALS_PSW} | docker login -u ${DOCKERHUB_CREDENTIALS_USR} --password-stdin"
                 sh "docker push ${DOCKER_IMAGE_BACKEND}:latest"
                 sh "docker push ${DOCKER_IMAGE_FRONTEND}:latest"
             }
@@ -45,7 +45,7 @@ pipeline {
             steps {
                 sshagent(['ec2-ssh-key']) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no ubuntu@your-ec2-ip << EOF
+                        ssh -o StrictHostKeyChecking=no ubuntu@3.89.251.245 << EOF
                         docker pull ${DOCKER_IMAGE_BACKEND}:latest
                         docker pull ${DOCKER_IMAGE_FRONTEND}:latest
                         docker-compose down || true
