@@ -14,7 +14,7 @@ pipeline {
         // ===== CREDENTIALS =====
         DOCKERHUB_CREDS = credentials('docker-hub-creds')
         EC2_SSH_CREDS = credentials('ec2-ssh-key')
-        GITHUB_CREDS = credentials('github-creds')
+        GITHUB_CREDS = credentials('github-creds')  // Verify this credential exists
     }
     
     options {
@@ -31,6 +31,11 @@ pipeline {
                     echo "=== ENVIRONMENT VARIABLES ==="
                     echo "Docker Image: ${DOCKER_IMAGE_BACKEND}"
                     echo "EC2 Target: ${EC2_IP}"
+                    
+                    // Verify credentials exist first
+                    withCredentials([usernamePassword(credentialsId: 'github-creds', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+                        echo "GitHub credentials verified"
+                    }
                     
                     // Test SSH connection
                     sshagent([EC2_SSH_CREDS]) {
@@ -133,28 +138,19 @@ pipeline {
     
     post {
         always {
-            script {  // Removed node wrapper, just use script
+            // Simple cleanup without node wrapper
+            script {
                 sh 'docker logout || true'
                 cleanWs()
             }
         }
         success {
-            script {
-                slackSend(
-                    color: 'good',
-                    message: """SUCCESS: ${env.APP_NAME} backend deployed to ${env.EC2_IP}
-                    Image: ${env.DOCKER_IMAGE_BACKEND}:${env.BUILD_TIMESTAMP}"""
-                )
-            }
+            // Basic success message (replace with email if Slack not available)
+            echo "SUCCESS: ${env.APP_NAME} deployed to ${env.EC2_IP}"
         }
         failure {
-            script {
-                slackSend(
-                    color: 'danger',
-                    message: """FAILED: ${env.APP_NAME} backend deployment
-                    Build: ${env.BUILD_URL}"""
-                )
-            }
+            // Basic failure message
+            echo "FAILED: ${env.APP_NAME} deployment"
         }
     }
 }
