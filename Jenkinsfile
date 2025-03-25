@@ -14,7 +14,7 @@ pipeline {
         // ===== CREDENTIALS =====
         DOCKERHUB_CREDS = credentials('docker-hub-creds')
         EC2_SSH_CREDS = credentials('ec2-ssh-key')
-        GITHUB_CREDS = credentials('github-creds')  // Verify this credential exists
+        GITHUB_CREDS = credentials('github-creds')
     }
     
     options {
@@ -32,15 +32,23 @@ pipeline {
                     echo "Docker Image: ${DOCKER_IMAGE_BACKEND}"
                     echo "EC2 Target: ${EC2_IP}"
                     
-                    // Verify credentials exist first
-                    withCredentials([usernamePassword(credentialsId: 'github-creds', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+                    // Verify GitHub credentials
+                    withCredentials([usernamePassword(
+                        credentialsId: 'github-creds',
+                        usernameVariable: 'GIT_USER',
+                        passwordVariable: 'GIT_PASS'
+                    )]) {
                         echo "GitHub credentials verified"
                     }
                     
-                    // Test SSH connection
-                    sshagent([EC2_SSH_CREDS]) {
+                    // Test SSH connection using SSH key directly
+                    withCredentials([sshUserPrivateKey(
+                        credentialsId: 'ec2-ssh-key',
+                        keyFileVariable: 'SSH_KEY'
+                    )]) {
                         sh """
-                            ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 ubuntu@${EC2_IP} 'echo "SSH connection successful"' || exit 1
+                            chmod 600 $SSH_KEY
+                            ssh -o StrictHostKeyChecking=no -i $SSH_KEY ubuntu@${EC2_IP} 'echo "SSH connection successful"' || exit 1
                         """
                     }
                 }
@@ -55,7 +63,7 @@ pipeline {
                     extensions: [[$class: 'CloneOption', timeout: 10]],
                     userRemoteConfigs: [[
                         url: 'https://github.com/Sahilgupta2175/mern-backend.git',
-                        credentialsId: GITHUB_CREDS
+                        credentialsId: 'github-creds'
                     ]]
                 ])
             }
@@ -107,21 +115,24 @@ pipeline {
                     version: '3.8'
                     services:
                       backend:
-                        image: ${DOCKER_IMAGE_BACKEND}:${BUILD_TIMESTAMP}
+                        image: ${DOCKER_IMAGE_BACKEND}:latest
                         ports:
                           - "5000:5000"
                         restart: unless-stopped
                     """
                     
-                    sshagent([EC2_SSH_CREDS]) {
+                    withCredentials([sshUserPrivateKey(
+                        credentialsId: 'ec2-ssh-key',
+                        keyFileVariable: 'SSH_KEY'
+                    )]) {
                         sh """
                             cat << 'EOF' > docker-compose.yml
                             ${composeFile}
                             EOF
                             
-                            scp -o StrictHostKeyChecking=no docker-compose.yml ubuntu@${EC2_IP}:~/
+                            scp -o StrictHostKeyChecking=no -i $SSH_KEY docker-compose.yml ubuntu@${EC2_IP}:~/
                             
-                            ssh -o StrictHostKeyChecking=no ubuntu@${EC2_IP} << 'DEPLOY'
+                            ssh -o StrictHostKeyChecking=no -i $SSH_KEY ubuntu@${EC2_IP} << 'DEPLOY'
                                 set -e
                                 docker-compose down || true
                                 docker-compose pull
@@ -138,18 +149,15 @@ pipeline {
     
     post {
         always {
-            // Simple cleanup without node wrapper
             script {
                 sh 'docker logout || true'
                 cleanWs()
             }
         }
         success {
-            // Basic success message (replace with email if Slack not available)
             echo "SUCCESS: ${env.APP_NAME} deployed to ${env.EC2_IP}"
         }
         failure {
-            // Basic failure message
             echo "FAILED: ${env.APP_NAME} deployment"
         }
     }
